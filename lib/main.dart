@@ -366,7 +366,7 @@ class _PassagerListScreenState extends State<PassagerListScreen> {
                 Icon(Icons.directions_bus, color: Colors.amber, size: 28),
                 SizedBox(width: 10),
                 Text(
-                  'Liste au départ de Bransan',
+                  'Gestion des clients de Bransan',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -473,7 +473,7 @@ class _PassagerListScreenState extends State<PassagerListScreen> {
                                     ),
                                     child: Center(
                                       child: Text(
-                                        '#$numeroOrdre',
+                                        '$numeroOrdre',
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 15,

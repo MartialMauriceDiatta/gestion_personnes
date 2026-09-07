@@ -15,7 +15,7 @@ jobs:
           flutter-version: '3.x'
 
       # Génère les dossiers natifs (android, ios, etc.) s'ils sont absents
-      - run: flutter create . --platforms=android
+      - run: flutter create . --project-name bransan --platforms=android
           
       - run: flutter pub get
       
