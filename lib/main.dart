@@ -35,7 +35,6 @@ class Passager {
   final String prenom;
   final String telephone;
   final String departement;
-  final String numero; // Numéro de siège ou numéro d'ordre
 
   Passager({
     this.id,
@@ -43,7 +42,6 @@ class Passager {
     required this.prenom,
     required this.telephone,
     required this.departement,
-    required this.numero,
   });
 
   Map<String, dynamic> toMap() {
@@ -53,7 +51,6 @@ class Passager {
       'prenom': prenom,
       'telephone': telephone,
       'departement': departement,
-      'numero': numero,
     };
   }
 
@@ -64,7 +61,6 @@ class Passager {
       prenom: map['prenom'],
       telephone: map['telephone'],
       departement: map['departement'],
-      numero: map['numero'],
     );
   }
 }
@@ -81,7 +77,7 @@ class DatabaseHelper {
 
   static Future<Database> _initDb() async {
     String dbPath = await getDatabasesPath();
-    String path = p.join(dbPath, 'bus_bransan_v1.db');
+    String path = p.join(dbPath, 'bus_bransan_v2.db');
     return await openDatabase(
       path,
       version: 1,
@@ -92,8 +88,7 @@ class DatabaseHelper {
           'nom TEXT, '
           'prenom TEXT, '
           'telephone TEXT, '
-          'departement TEXT, '
-          'numero TEXT)',
+          'departement TEXT)',
         );
       },
     );
@@ -104,7 +99,7 @@ class DatabaseHelper {
     return await dbClient.insert('passagers', p.toMap());
   }
 
-  // Tri du premier inscrit au dernier (ASC)
+  // Tri du premier inscrit au dernier (ASC) par ID
   static Future<List<Passager>> getAll() async {
     final dbClient = await db;
     final List<Map<String, dynamic>> maps =
@@ -114,8 +109,12 @@ class DatabaseHelper {
 
   static Future<int> update(Passager p) async {
     final dbClient = await db;
-    return await dbClient.update('passagers', p.toMap(),
-        where: 'id = ?', whereArgs: [p.id]);
+    return await dbClient.update(
+      'passagers',
+      p.toMap(),
+      where: 'id = ?',
+      whereArgs: [p.id],
+    );
   }
 
   static Future<int> delete(int id) async {
@@ -164,8 +163,7 @@ class _PassagerListScreenState extends State<PassagerListScreen> {
               p.nom.toLowerCase().contains(keyword.toLowerCase()) ||
               p.prenom.toLowerCase().contains(keyword.toLowerCase()) ||
               p.telephone.contains(keyword) ||
-              p.departement.toLowerCase().contains(keyword.toLowerCase()) ||
-              p.numero.toLowerCase().contains(keyword.toLowerCase()))
+              p.departement.toLowerCase().contains(keyword.toLowerCase()))
           .toList();
     });
   }
@@ -188,7 +186,6 @@ class _PassagerListScreenState extends State<PassagerListScreen> {
     final nomController = TextEditingController(text: passager?.nom ?? '');
     final phoneController = TextEditingController(text: passager?.telephone ?? '');
     final deptController = TextEditingController(text: passager?.departement ?? '');
-    final numController = TextEditingController(text: passager?.numero ?? '');
 
     showModalBottomSheet(
       context: context,
@@ -260,14 +257,6 @@ class _PassagerListScreenState extends State<PassagerListScreen> {
                   validator: (val) =>
                       val == null || val.trim().isEmpty ? 'Champ obligatoire' : null,
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: numController,
-                  keyboardType: TextInputType.text,
-                  decoration: _inputDecoration('Numéro (Siège / Billet)', Icons.confirmation_number_outlined),
-                  validator: (val) =>
-                      val == null || val.trim().isEmpty ? 'Champ obligatoire' : null,
-                ),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
@@ -289,7 +278,6 @@ class _PassagerListScreenState extends State<PassagerListScreen> {
                           nom: nomController.text.trim(),
                           telephone: phoneController.text.trim(),
                           departement: deptController.text.trim(),
-                          numero: numController.text.trim(),
                         );
 
                         if (passager == null) {
@@ -406,7 +394,7 @@ class _PassagerListScreenState extends State<PassagerListScreen> {
               controller: _searchController,
               onChanged: _filter,
               decoration: InputDecoration(
-                hintText: 'Rechercher (Nom, Téléphone, Dép, N°)...',
+                hintText: 'Rechercher (Nom, Téléphone, Département)...',
                 prefixIcon: const Icon(Icons.search, color: Color(0xFF1E56A0)),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
@@ -456,6 +444,11 @@ class _PassagerListScreenState extends State<PassagerListScreen> {
                         itemBuilder: (ctx, i) {
                           final item = _filteredPassagers[i];
 
+                          // Calcul du numéro dynamique basé sur l'ordre dans la liste globale
+                          final int numeroOrdre = _searchController.text.isEmpty
+                              ? i + 1
+                              : _allPassagers.indexWhere((p) => p.id == item.id) + 1;
+
                           return Card(
                             margin: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 6),
@@ -480,7 +473,7 @@ class _PassagerListScreenState extends State<PassagerListScreen> {
                                     ),
                                     child: Center(
                                       child: Text(
-                                        '#${item.numero}',
+                                        '#$numeroOrdre',
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 15,
