@@ -1,27 +1,56 @@
-name: Build Flutter APK
+name: Build Flutter App (Android & iOS)
 
 on:
   push:
     branches: [ main, master ]
 
 jobs:
-  build:
+  build-android:
+    name: Build Android APK
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.x'
 
-      # Génère les dossiers natifs (android, ios, etc.) s'ils sont absents
-      - run: flutter create . --project-name bransan --platforms=android
-          
-      - run: flutter pub get
-      
-      - run: flutter build apk --release
-      
-      - uses: actions/upload-artifact@v4
+      - name: Generate Native Platforms
+        run: flutter create . --project-name bransan --platforms=android
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
         with:
-          name: app-release
+          name: app-android-release
           path: build/app/outputs/flutter-apk/app-release.apk
+
+  build-ios:
+    name: Build iOS App
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+
+      - name: Generate Native Platforms
+        run: flutter create . --project-name bransan --platforms=ios
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build iOS IPA
+        run: flutter build ipa --no-codesign
+
+      - name: Upload iOS Archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-ios-archive
+          path: build/ios/archive/Runner.xcarchive
