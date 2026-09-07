@@ -1,5 +1,5 @@
-name: personnes_app
-description: "Application Flutter de gestion de personnes"
+name: Gestion Bus
+description: "Application Flutter de gestion de la liste de rappel au depart du bus de Bransan"
 publish_to: 'none'
 
 version: 1.0.0+1

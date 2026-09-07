@@ -1,8 +1,6 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
-import 'package:image_picker/image_picker.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,33 +13,37 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Gestion des Personnes',
+      title: 'Transport Bransan',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF1E56A0),
+          brightness: Brightness.light,
+        ),
         useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFFF4F6F9),
       ),
-      home: const PersonListScreen(),
+      home: const PassagerListScreen(),
     );
   }
 }
 
-// Modèle de données
-class Personne {
+// Modèle de données pour les passagers
+class Passager {
   final int? id;
   final String nom;
   final String prenom;
-  final int age;
-  final String role;
-  final String? imagePath;
+  final String telephone;
+  final String departement;
+  final String numero; // Numéro de siège ou numéro d'ordre
 
-  Personne({
+  Passager({
     this.id,
     required this.nom,
     required this.prenom,
-    required this.age,
-    required this.role,
-    this.imagePath,
+    required this.telephone,
+    required this.departement,
+    required this.numero,
   });
 
   Map<String, dynamic> toMap() {
@@ -49,25 +51,25 @@ class Personne {
       'id': id,
       'nom': nom,
       'prenom': prenom,
-      'age': age,
-      'role': role,
-      'imagePath': imagePath,
+      'telephone': telephone,
+      'departement': departement,
+      'numero': numero,
     };
   }
 
-  factory Personne.fromMap(Map<String, dynamic> map) {
-    return Personne(
+  factory Passager.fromMap(Map<String, dynamic> map) {
+    return Passager(
       id: map['id'],
       nom: map['nom'],
       prenom: map['prenom'],
-      age: map['age'],
-      role: map['role'],
-      imagePath: map['imagePath'],
+      telephone: map['telephone'],
+      departement: map['departement'],
+      numero: map['numero'],
     );
   }
 }
 
-// Helper SQLite
+// Gestionnaire de Base de Données SQLite
 class DatabaseHelper {
   static Database? _db;
 
@@ -79,51 +81,60 @@ class DatabaseHelper {
 
   static Future<Database> _initDb() async {
     String dbPath = await getDatabasesPath();
-    String path = p.join(dbPath, 'personnes_v2.db');
+    String path = p.join(dbPath, 'bus_bransan_v1.db');
     return await openDatabase(
       path,
       version: 1,
       onCreate: (db, version) {
         return db.execute(
-          'CREATE TABLE personnes(id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT, prenom TEXT, age INTEGER, role TEXT, imagePath TEXT)',
+          'CREATE TABLE passagers('
+          'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+          'nom TEXT, '
+          'prenom TEXT, '
+          'telephone TEXT, '
+          'departement TEXT, '
+          'numero TEXT)',
         );
       },
     );
   }
 
-  static Future<int> insert(Personne p) async {
+  static Future<int> insert(Passager p) async {
     final dbClient = await db;
-    return await dbClient.insert('personnes', p.toMap());
+    return await dbClient.insert('passagers', p.toMap());
   }
 
-  static Future<List<Personne>> getAll() async {
+  // Tri du premier inscrit au dernier (ASC)
+  static Future<List<Passager>> getAll() async {
     final dbClient = await db;
-    final List<Map<String, dynamic>> maps = await dbClient.query('personnes', orderBy: 'id DESC');
-    return List.generate(maps.length, (i) => Personne.fromMap(maps[i]));
+    final List<Map<String, dynamic>> maps =
+        await dbClient.query('passagers', orderBy: 'id ASC');
+    return List.generate(maps.length, (i) => Passager.fromMap(maps[i]));
   }
 
-  static Future<int> update(Personne p) async {
+  static Future<int> update(Passager p) async {
     final dbClient = await db;
-    return await dbClient.update('personnes', p.toMap(), where: 'id = ?', whereArgs: [p.id]);
+    return await dbClient.update('passagers', p.toMap(),
+        where: 'id = ?', whereArgs: [p.id]);
   }
 
   static Future<int> delete(int id) async {
     final dbClient = await db;
-    return await dbClient.delete('personnes', where: 'id = ?', whereArgs: [id]);
+    return await dbClient.delete('passagers', where: 'id = ?', whereArgs: [id]);
   }
 }
 
-// Écran principal
-class PersonListScreen extends StatefulWidget {
-  const PersonListScreen({super.key});
+// Écran Principal
+class PassagerListScreen extends StatefulWidget {
+  const PassagerListScreen({super.key});
 
   @override
-  State<PersonListScreen> createState() => _PersonListScreenState();
+  State<PassagerListScreen> createState() => _PassagerListScreenState();
 }
 
-class _PersonListScreenState extends State<PersonListScreen> {
-  List<Personne> _allPersonnes = [];
-  List<Personne> _filteredPersonnes = [];
+class _PassagerListScreenState extends State<PassagerListScreen> {
+  List<Passager> _allPassagers = [];
+  List<Passager> _filteredPassagers = [];
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
 
@@ -137,8 +148,8 @@ class _PersonListScreenState extends State<PersonListScreen> {
     setState(() => _isLoading = true);
     final data = await DatabaseHelper.getAll();
     setState(() {
-      _allPersonnes = data;
-      _filteredPersonnes = data;
+      _allPassagers = data;
+      _filteredPassagers = data;
       _isLoading = false;
     });
     if (_searchController.text.isNotEmpty) {
@@ -148,11 +159,13 @@ class _PersonListScreenState extends State<PersonListScreen> {
 
   void _filter(String keyword) {
     setState(() {
-      _filteredPersonnes = _allPersonnes
+      _filteredPassagers = _allPassagers
           .where((p) =>
               p.nom.toLowerCase().contains(keyword.toLowerCase()) ||
               p.prenom.toLowerCase().contains(keyword.toLowerCase()) ||
-              p.role.toLowerCase().contains(keyword.toLowerCase()))
+              p.telephone.contains(keyword) ||
+              p.departement.toLowerCase().contains(keyword.toLowerCase()) ||
+              p.numero.toLowerCase().contains(keyword.toLowerCase()))
           .toList();
     });
   }
@@ -161,157 +174,175 @@ class _PersonListScreenState extends State<PersonListScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? Colors.red.shade700 : Colors.green.shade700,
+        backgroundColor: isError ? Colors.red.shade700 : const Color(0xFF1E56A0),
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         duration: const Duration(seconds: 3),
       ),
     );
   }
 
-  void _showFormDialog({Personne? personne}) {
+  void _showFormDialog({Passager? passager}) {
     final formKey = GlobalKey<FormState>();
-    final nomController = TextEditingController(text: personne?.nom ?? '');
-    final prenomController = TextEditingController(text: personne?.prenom ?? '');
-    final ageController = TextEditingController(text: personne?.age.toString() ?? '');
-    final roleController = TextEditingController(text: personne?.role ?? '');
-    String? selectedImagePath = personne?.imagePath;
+    final prenomController = TextEditingController(text: passager?.prenom ?? '');
+    final nomController = TextEditingController(text: passager?.nom ?? '');
+    final phoneController = TextEditingController(text: passager?.telephone ?? '');
+    final deptController = TextEditingController(text: passager?.departement ?? '');
+    final numController = TextEditingController(text: passager?.numero ?? '');
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => StatefulBuilder(
-        builder: (BuildContext context, StateSetter setModalState) {
-          Future<void> pickImage() async {
-            final picker = ImagePicker();
-            final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-            if (pickedFile != null) {
-              setModalState(() {
-                selectedImagePath = pickedFile.path;
-              });
-            }
-          }
-
-          return Padding(
-            padding: EdgeInsets.only(
-              top: 24,
-              left: 20,
-              right: 20,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-            ),
-            child: SingleChildScrollView(
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      personne == null ? 'Ajouter une personne' : 'Modifier la personne',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          top: 24,
+          left: 20,
+          right: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        child: SingleChildScrollView(
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    const SizedBox(height: 16),
-                    GestureDetector(
-                      onTap: pickImage,
-                      child: Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 40,
-                            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                            backgroundImage: (selectedImagePath != null && File(selectedImagePath!).existsSync())
-                                ? FileImage(File(selectedImagePath!))
-                                : null,
-                            child: (selectedImagePath == null || !File(selectedImagePath!).existsSync())
-                                ? const Icon(Icons.person, size: 40)
-                                : null,
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: CircleAvatar(
-                              radius: 14,
-                              backgroundColor: Theme.of(context).colorScheme.primary,
-                              child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: prenomController,
-                      decoration: const InputDecoration(labelText: 'Prénom', prefixIcon: Icon(Icons.person_outline)),
-                      validator: (val) => val == null || val.trim().isEmpty ? 'Prénom obligatoire' : null,
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: nomController,
-                      decoration: const InputDecoration(labelText: 'Nom', prefixIcon: Icon(Icons.person)),
-                      validator: (val) => val == null || val.trim().isEmpty ? 'Nom obligatoire' : null,
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: ageController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Âge', prefixIcon: Icon(Icons.cake_outlined)),
-                      validator: (val) {
-                        if (val == null || val.isEmpty) return 'Âge obligatoire';
-                        final parsed = int.tryParse(val);
-                        if (parsed == null || parsed <= 0) return 'Saisissez un âge valide';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: roleController,
-                      decoration: const InputDecoration(labelText: 'Rôle / Profession', prefixIcon: Icon(Icons.work_outline)),
-                      validator: (val) => val == null || val.trim().isEmpty ? 'Rôle obligatoire' : null,
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: () async {
-                          if (formKey.currentState!.validate()) {
-                            final p = Personne(
-                              id: personne?.id,
-                              nom: nomController.text.trim(),
-                              prenom: prenomController.text.trim(),
-                              age: int.parse(ageController.text.trim()),
-                              role: roleController.text.trim(),
-                              imagePath: selectedImagePath,
-                            );
-
-                            if (personne == null) {
-                              await DatabaseHelper.insert(p);
-                              _showSnackBar('${p.prenom} a été ajouté(e) avec succès.');
-                            } else {
-                              await DatabaseHelper.update(p);
-                              _showSnackBar('Informations de ${p.prenom} mises à jour.');
-                            }
-
-                            if (mounted) Navigator.of(context).pop();
-                            _refreshList();
-                          }
-                        },
-                        child: Text(personne == null ? 'Enregistrer' : 'Mettre à jour'),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                Text(
+                  passager == null
+                      ? 'Nouveau Passager'
+                      : 'Modifier les Informations',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF1E56A0),
+                      ),
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: prenomController,
+                  decoration: _inputDecoration('Prénom', Icons.person_outline),
+                  validator: (val) =>
+                      val == null || val.trim().isEmpty ? 'Champ obligatoire' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: nomController,
+                  decoration: _inputDecoration('Nom', Icons.person),
+                  validator: (val) =>
+                      val == null || val.trim().isEmpty ? 'Champ obligatoire' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: _inputDecoration('Téléphone', Icons.phone_outlined),
+                  validator: (val) =>
+                      val == null || val.trim().isEmpty ? 'Champ obligatoire' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: deptController,
+                  decoration: _inputDecoration('Département', Icons.business_outlined),
+                  validator: (val) =>
+                      val == null || val.trim().isEmpty ? 'Champ obligatoire' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: numController,
+                  keyboardType: TextInputType.text,
+                  decoration: _inputDecoration('Numéro (Siège / Billet)', Icons.confirmation_number_outlined),
+                  validator: (val) =>
+                      val == null || val.trim().isEmpty ? 'Champ obligatoire' : null,
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E56A0),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                    onPressed: () async {
+                      if (formKey.currentState!.validate()) {
+                        final p = Passager(
+                          id: passager?.id,
+                          prenom: prenomController.text.trim(),
+                          nom: nomController.text.trim(),
+                          telephone: phoneController.text.trim(),
+                          departement: deptController.text.trim(),
+                          numero: numController.text.trim(),
+                        );
+
+                        if (passager == null) {
+                          await DatabaseHelper.insert(p);
+                          _showSnackBar('${p.prenom} a été ajouté(e) au bus.');
+                        } else {
+                          await DatabaseHelper.update(p);
+                          _showSnackBar('Fiche de ${p.prenom} mise à jour.');
+                        }
+
+                        if (mounted) Navigator.of(context).pop();
+                        _refreshList();
+                      }
+                    },
+                    child: Text(
+                      passager == null ? 'Enregistrer le passager' : 'Mettre à jour',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
 
-  void _confirmDelete(Personne personne) {
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: const Color(0xFF1E56A0)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFF1E56A0), width: 2),
+      ),
+      filled: true,
+      fillColor: const Color(0xFFF8FAFC),
+    );
+  }
+
+  void _confirmDelete(Passager passager) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Confirmation'),
-        content: Text('Voulez-vous supprimer ${personne.prenom} ${personne.nom} ?'),
+        content: Text('Voulez-vous retirer ${passager.prenom} ${passager.nom} de la liste ?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
@@ -320,10 +351,10 @@ class _PersonListScreenState extends State<PersonListScreen> {
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              await DatabaseHelper.delete(personne.id!);
+              await DatabaseHelper.delete(passager.id!);
               if (mounted) Navigator.of(ctx).pop();
               _refreshList();
-              _showSnackBar('${personne.prenom} ${personne.nom} a été supprimé(e).', isError: true);
+              _showSnackBar('Passager retiré de la liste.', isError: true);
             },
             child: const Text('Supprimer'),
           ),
@@ -336,19 +367,47 @@ class _PersonListScreenState extends State<PersonListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Répertoire des Personnes'),
-        centerTitle: true,
+        toolbarHeight: 80,
+        backgroundColor: const Color(0xFF1E56A0),
+        elevation: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.directions_bus, color: Colors.amber, size: 28),
+                SizedBox(width: 10),
+                Text(
+                  'Liste au départ de Bransan',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${_allPassagers.length} passager(s) enregistré(s)',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withOpacity(0.8),
+              ),
+            ),
+          ],
+        ),
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.all(16.0),
             child: TextField(
               controller: _searchController,
               onChanged: _filter,
               decoration: InputDecoration(
-                hintText: 'Rechercher un nom, rôle...',
-                prefixIcon: const Icon(Icons.search),
+                hintText: 'Rechercher (Nom, Téléphone, Dép, N°)...',
+                prefixIcon: const Icon(Icons.search, color: Color(0xFF1E56A0)),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear),
@@ -358,69 +417,140 @@ class _PersonListScreenState extends State<PersonListScreen> {
                         },
                       )
                     : null,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
                 filled: true,
-                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(100),
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
               ),
             ),
           ),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _filteredPersonnes.isEmpty
+                : _filteredPassagers.isEmpty
                     ? Center(
-                        child: Text(
-                          _searchController.text.isEmpty
-                              ? 'Aucune personne enregistrée.'
-                              : 'Aucun résultat pour cette recherche.',
-                          style: TextStyle(color: Colors.grey.shade600),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.directions_bus_outlined,
+                                size: 64, color: Colors.grey.shade400),
+                            const SizedBox(height: 12),
+                            Text(
+                              _searchController.text.isEmpty
+                                  ? 'Aucun passager inscrit.'
+                                  : 'Aucun résultat trouvé.',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
                         ),
                       )
                     : ListView.builder(
-                        itemCount: _filteredPersonnes.length,
+                        itemCount: _filteredPassagers.length,
+                        padding: const EdgeInsets.only(bottom: 80),
                         itemBuilder: (ctx, i) {
-                          final item = _filteredPersonnes[i];
-                          final bool hasImage = item.imagePath != null && File(item.imagePath!).existsSync();
+                          final item = _filteredPassagers[i];
 
                           return Card(
-                            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            margin: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 6),
                             elevation: 0,
-                            color: Theme.of(context).colorScheme.surfaceContainerLow,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              leading: CircleAvatar(
-                                radius: 26,
-                                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                                backgroundImage: hasImage ? FileImage(File(item.imagePath!)) : null,
-                                child: !hasImage
-                                    ? Text(
-                                        '${item.prenom[0]}${item.nom[0]}'.toUpperCase(),
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Theme.of(context).colorScheme.onPrimaryContainer,
-                                        ),
-                                      )
-                                    : null,
-                              ),
-                              title: Text(
-                                '${item.prenom} ${item.nom.toUpperCase()}',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              subtitle: Padding(
-                                padding: const EdgeInsets.only(top: 4.0),
-                                child: Text('${item.role} • ${item.age} ans'),
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
+                            color: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(
+                                  color: Colors.grey.shade200, width: 1),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Row(
                                 children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.edit_outlined, color: Colors.blue),
-                                    onPressed: () => _showFormDialog(personne: item),
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1E56A0)
+                                          .withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        '#${item.numero}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                          color: Color(0xFF1E56A0),
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                    onPressed: () => _confirmDelete(item),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${item.prenom} ${item.nom.toUpperCase()}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            Icon(Icons.phone,
+                                                size: 14,
+                                                color: Colors.grey.shade600),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              item.telephone,
+                                              style: TextStyle(
+                                                color: Colors.grey.shade800,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Icon(Icons.location_city,
+                                                size: 14,
+                                                color: Colors.grey.shade600),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                item.departement,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: Colors.grey.shade800,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.edit_outlined,
+                                            color: Colors.blue),
+                                        onPressed: () =>
+                                            _showFormDialog(passager: item),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline,
+                                            color: Colors.red),
+                                        onPressed: () => _confirmDelete(item),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -433,8 +563,11 @@ class _PersonListScreenState extends State<PersonListScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showFormDialog(),
-        icon: const Icon(Icons.add),
-        label: const Text('Ajouter'),
+        backgroundColor: const Color(0xFF1E56A0),
+        foregroundColor: Colors.white,
+        elevation: 2,
+        icon: const Icon(Icons.person_add),
+        label: const Text('Ajouter un passager'),
       ),
     );
   }
