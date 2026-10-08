@@ -27,7 +27,7 @@ jobs:
 
       # 3. Créer le projet natif Android s'il est absent du dépôt
       - name: Generate Android structure
-        run: flutter create . --project-name Bransan --platforms=android
+        run: flutter create . --project-name bransan --platforms=android
 
       # 4. Installer les dépendances
       - name: Install dependencies
