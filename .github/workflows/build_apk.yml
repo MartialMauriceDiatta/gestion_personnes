@@ -10,18 +10,42 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - uses: subosito/flutter-action@v2
+      # 1. Configurer Java 17
+      - name: Set up Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      # 2. Configurer Flutter
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.x'
+          channel: 'stable'
+          cache: true
 
-      # Génère les dossiers natifs (android, ios, etc.) s'ils sont absents
-      - run: flutter create . --project-name bransan --platforms=android
-          
-      - run: flutter pub get
-      
-      - run: flutter build apk --release
-      
-      - uses: actions/upload-artifact@v4
+      # 3. Créer le projet natif Android
+      - name: Generate Android project structure
+        run: flutter create . --project-name bransan --platforms=android
+
+      # 4. Ajuster le compileSdk Android à 36 dans build.gradle
+      - name: Force compileSdk 36
+        run: |
+          sed -i 's/compileSdk = .*/compileSdk = 36/' android/app/build.gradle || true
+          sed -i 's/compileSdkVersion .*/compileSdkVersion 36/' android/app/build.gradle || true
+
+      # 5. Installer les dépendances
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 6. Compiler l'APK Release
+      - name: Build APK
+        run: flutter build apk --release
+
+      # 7. Télécharger l'APK généré
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          name: app-release
+          name: Transport-Bransan-APK
           path: build/app/outputs/flutter-apk/app-release.apk
