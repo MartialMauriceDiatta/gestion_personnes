@@ -10,18 +10,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - uses: subosito/flutter-action@v2
+      # 1. Configurer Java (Indispensable pour compiler l'APK avec Gradle)
+      - name: Set up Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      # 2. Configurer Flutter
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.x'
+          channel: 'stable'
+          cache: true
 
-      # Génère les dossiers natifs (android, ios, etc.) s'ils sont absents
-      - run: flutter create . --project-name bransan --platforms=android
-          
-      - run: flutter pub get
-      
-      - run: flutter build apk --release
-      
-      - uses: actions/upload-artifact@v4
+      # 3. Récupérer les dépendances
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 4. Générer les icônes de l'application (Évite l'erreur de ressource manquante)
+      - name: Generate Launcher Icons
+        run: flutter pub run flutter_launcher_icons
+
+      # 5. Compiler l'APK Release
+      - name: Build APK
+        run: flutter build apk --release
+
+      # 6. Mettre à disposition l'APK en téléchargement
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          name: app-release
+          name: Transport-Bransan-APK
           path: build/app/outputs/flutter-apk/app-release.apk
