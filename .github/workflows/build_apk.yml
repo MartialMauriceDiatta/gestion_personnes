@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # 1. Configurer Java (Indispensable pour compiler l'APK avec Gradle)
+      # 1. Configurer Java 17
       - name: Set up Java JDK
         uses: actions/setup-java@v4
         with:
@@ -25,19 +25,23 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # 3. Récupérer les dépendances
+      # 3. Créer l'arborescence Android si absente
+      - name: Generate Android project structure
+        run: flutter create . --project-name bransan --platforms=android
+
+      # 4. Récupérer les dépendances
       - name: Install dependencies
         run: flutter pub get
 
-      # 4. Générer les icônes de l'application (Évite l'erreur de ressource manquante)
+      # 5. Générer les icônes sur le serveur GitHub
       - name: Generate Launcher Icons
-        run: flutter pub run flutter_launcher_icons
+        run: dart run flutter_launcher_icons
 
-      # 5. Compiler l'APK Release
+      # 6. Compiler l'APK Release
       - name: Build APK
         run: flutter build apk --release
 
-      # 6. Mettre à disposition l'APK en téléchargement
+      # 7. Télécharger l'APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:

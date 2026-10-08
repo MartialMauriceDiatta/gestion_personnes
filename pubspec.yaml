@@ -22,7 +22,6 @@ dev_dependencies:
   flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.13.1
 
-# Configuration pour la génération de l'icône du bus
 flutter_launcher_icons:
   android: true
   image_path: "assets/app_icon.png"
