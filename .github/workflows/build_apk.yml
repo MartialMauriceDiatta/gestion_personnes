@@ -9,15 +9,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      # 1. Configurer Java 17
+
       - name: Set up Java JDK
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-      
-      # 2. Configurer Flutter
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -25,27 +23,55 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # 3. Générer la structure Android propre
       - name: Generate Android project structure
         run: flutter create . --project-name bransan --platforms=android
 
-      # 4. Forcer le SDK 36 via le fichier gradle.properties (Méthode officielle Flutter)
-      - name: Configure Android SDK Version
-        run: |
-          echo "android.compileSdkVersion=36" >> android/gradle.properties
-          echo "android.targetSdkVersion=36" >> android/gradle.properties
+      # Nom de l'application affiché sur le téléphone
+      - name: Set app name to Bransan
+        run: sed -i 's/android:label="[^"]*"/android:label="Bransan"/' android/app/src/main/AndroidManifest.xml
 
-      # 5. Installer les dépendances
+      # Forcer compileSdk 36 sur TOUS les modules (app + plugins)
+      - name: Force compileSdk 36 on all modules
+        run: |
+          echo "android.suppressUnsupportedCompileSdk=36" >> android/gradle.properties
+
+          if [ -f android/build.gradle.kts ]; then
+            cat >> android/build.gradle.kts << 'EOF'
+
+          subprojects {
+              val forceSdk: Project.() -> Unit = {
+                  (extensions.findByName("android") as? com.android.build.gradle.BaseExtension)
+                      ?.compileSdkVersion(36)
+              }
+              if (state.executed) forceSdk() else afterEvaluate { forceSdk() }
+          }
+          EOF
+          else
+            cat >> android/build.gradle << 'EOF'
+
+          subprojects {
+              def forceSdk = { Project p ->
+                  if (p.hasProperty('android')) {
+                      p.android.compileSdkVersion 36
+                  }
+              }
+              if (project.state.executed) {
+                  forceSdk(project)
+              } else {
+                  project.afterEvaluate { forceSdk(it) }
+              }
+          }
+          EOF
+          fi
+
       - name: Install dependencies
         run: flutter pub get
 
-      # 6. Compiler l'APK Release
       - name: Build APK
         run: flutter build apk --release
 
-      # 7. Télécharger l'APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Transport-Bransan-APK
+          name: Bransan-APK
           path: build/app/outputs/flutter-apk/app-release.apk
