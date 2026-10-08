@@ -1,11 +1,11 @@
 name: Bransan
 description: "Application Flutter de gestion de la liste de rappel au depart du bus de Bransan"
-publish_to: 'none'
+publish_to: "none"
 
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: ">=3.0.0 <4.0.0"
 
 dependencies:
   flutter:
@@ -25,7 +25,6 @@ dev_dependencies:
 # Configuration pour la génération de l'icône du bus
 flutter_launcher_icons:
   android: true
-  ios: true
   image_path: "assets/app_icon.png"
   min_sdk_android: 21
 
