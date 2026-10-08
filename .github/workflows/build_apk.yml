@@ -29,11 +29,21 @@ jobs:
       - name: Generate Android project structure
         run: flutter create . --project-name bransan --platforms=android
 
-      # 4. Ajuster le compileSdk Android à 36 dans build.gradle
-      - name: Force compileSdk 36
+      # 4. Forcer le compileSdk à 36 pour TOUS les modules (app + plugins comme file_picker)
+      - name: Force compileSdk 36 globally
         run: |
-          sed -i 's/compileSdk = .*/compileSdk = 36/' android/app/build.gradle || true
-          sed -i 's/compileSdkVersion .*/compileSdkVersion 36/' android/app/build.gradle || true
+          cat << 'EOF' >> android/build.gradle
+
+          subprojects {
+              afterEvaluate { project ->
+                  if (project.hasProperty('android')) {
+                      project.android {
+                          compileSdkVersion 36
+                      }
+                  }
+              }
+          }
+          EOF
 
       # 5. Installer les dépendances
       - name: Install dependencies
