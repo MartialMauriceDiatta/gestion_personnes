@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # 1. Configurer Java 17
+      # 1. Configurer Java JDK 17
       - name: Set up Java JDK
         uses: actions/setup-java@v4
         with:
@@ -25,23 +25,19 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # 3. Créer l'arborescence Android si absente
-      - name: Generate Android project structure
-        run: flutter create . --project-name bransan --platforms=android
+      # 3. Créer le projet natif Android s'il est absent du dépôt
+      - name: Generate Android structure
+        run: flutter create . --project-name Bransan --platforms=android
 
-      # 4. Récupérer les dépendances
+      # 4. Installer les dépendances
       - name: Install dependencies
         run: flutter pub get
 
-      # 5. Générer les icônes sur le serveur GitHub
-      - name: Generate Launcher Icons
-        run: dart run flutter_launcher_icons
-
-      # 6. Compiler l'APK Release
+      # 5. Compiler l'APK Release
       - name: Build APK
         run: flutter build apk --release
 
-      # 7. Télécharger l'APK
+      # 6. Mettre à disposition l'APK généré
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
