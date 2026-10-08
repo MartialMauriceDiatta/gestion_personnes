@@ -1,6 +1,10 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
+import 'package:file_picker/file_picker.dart';
+import 'package:share_plus/share_plus.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,13 +58,23 @@ class Passager {
     };
   }
 
+  // Utilisé pour l'exportation JSON (sans l'ID local)
+  Map<String, dynamic> toJson() {
+    return {
+      'nom': nom,
+      'prenom': prenom,
+      'telephone': telephone,
+      'departement': departement,
+    };
+  }
+
   factory Passager.fromMap(Map<String, dynamic> map) {
     return Passager(
       id: map['id'],
-      nom: map['nom'],
-      prenom: map['prenom'],
-      telephone: map['telephone'],
-      departement: map['departement'],
+      nom: map['nom'] ?? '',
+      prenom: map['prenom'] ?? '',
+      telephone: map['telephone'] ?? '',
+      departement: map['departement'] ?? '',
     );
   }
 }
@@ -99,7 +113,6 @@ class DatabaseHelper {
     return await dbClient.insert('passagers', p.toMap());
   }
 
-  // Tri du premier inscrit au dernier (ASC) par ID
   static Future<List<Passager>> getAll() async {
     final dbClient = await db;
     final List<Map<String, dynamic>> maps =
@@ -120,6 +133,27 @@ class DatabaseHelper {
   static Future<int> delete(int id) async {
     final dbClient = await db;
     return await dbClient.delete('passagers', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // Importation massive avec vérification des doublons par numéro de téléphone
+  static Future<int> importPassagers(List<Passager> list) async {
+    final dbClient = await db;
+    int ajouts = 0;
+
+    for (var p in list) {
+      // Vérifier si le passager existe déjà (par téléphone)
+      final existing = await dbClient.query(
+        'passagers',
+        where: 'telephone = ?',
+        whereArgs: [p.telephone],
+      );
+
+      if (existing.isEmpty) {
+        await dbClient.insert('passagers', p.toJson()); // Insert sans ID
+        ajouts++;
+      }
+    }
+    return ajouts;
   }
 }
 
@@ -178,6 +212,56 @@ class _PassagerListScreenState extends State<PassagerListScreen> {
         duration: const Duration(seconds: 3),
       ),
     );
+  }
+
+  // --- EXPORTATION ---
+  Future<void> _exportData() async {
+    if (_allPassagers.isEmpty) {
+      _showSnackBar('Aucune donnée à exporter.', isError: true);
+      return;
+    }
+
+    try {
+      final jsonList = _allPassagers.map((p) => p.toJson()).toList();
+      final jsonString = jsonEncode(jsonList);
+
+      final tempDir = Directory.systemTemp;
+      final file = File('${tempDir.path}/passagers_bransan.json');
+      await file.writeAsString(jsonString);
+
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Exportation de la liste des passagers Transport Bransan',
+      );
+    } catch (e) {
+      _showSnackBar('Erreur lors de l\'exportation : $e', isError: true);
+    }
+  }
+
+  // --- IMPORTATION ---
+  Future<void> _importData() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final file = File(result.files.single.path!);
+        final content = await file.readAsString();
+
+        final List<dynamic> jsonList = jsonDecode(content);
+        final List<Passager> importedPassagers =
+            jsonList.map((e) => Passager.fromMap(e)).toList();
+
+        int ajouts = await DatabaseHelper.importPassagers(importedPassagers);
+
+        _refreshList();
+        _showSnackBar('$ajouts nouveau(x) passager(s) importé(s) avec succès !');
+      }
+    } catch (e) {
+      _showSnackBar('Fichier JSON invalide ou corrompu.', isError: true);
+    }
   }
 
   void _showFormDialog({Passager? passager}) {
@@ -385,6 +469,18 @@ class _PassagerListScreenState extends State<PassagerListScreen> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.upload_file, color: Colors.white),
+            tooltip: 'Importer des passagers',
+            onPressed: _importData,
+          ),
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            tooltip: 'Exporter / Partager la liste',
+            onPressed: _exportData,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -443,8 +539,6 @@ class _PassagerListScreenState extends State<PassagerListScreen> {
                         padding: const EdgeInsets.only(bottom: 80),
                         itemBuilder: (ctx, i) {
                           final item = _filteredPassagers[i];
-
-                          // Calcul du numéro dynamique basé sur l'ordre dans la liste globale
                           final int numeroOrdre = _searchController.text.isEmpty
                               ? i + 1
                               : _allPassagers.indexWhere((p) => p.id == item.id) + 1;
