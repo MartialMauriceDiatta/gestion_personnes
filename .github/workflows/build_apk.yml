@@ -10,36 +10,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # 1. Configurer Java 17
-      - name: Set up Java JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      
-      # 2. Configurer Flutter
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.x'
-          channel: 'stable'
-          cache: true
 
-      # 3. Récréer l'arborescence Android si elle est absente du dépôt
-      - name: Generate Android project structure
-        run: flutter create . --project-name bransan --platforms=android
-
-      # 4. Installer les dépendances
-      - name: Install dependencies
-        run: flutter pub get
-
-      # 5. Compiler l'APK Release avec le flag verbose pour un rapport complet
-      - name: Build APK
-        run: flutter build apk --release --verbose
-
-      # 6. Mettre à disposition l'APK généré
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      # Génère les dossiers natifs (android, ios, etc.) s'ils sont absents
+      - run: flutter create . --project-name bransan --platforms=android
+          
+      - run: flutter pub get
+      
+      - run: flutter build apk --release
+      
+      - uses: actions/upload-artifact@v4
         with:
-          name: Transport-Bransan-APK
+          name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
