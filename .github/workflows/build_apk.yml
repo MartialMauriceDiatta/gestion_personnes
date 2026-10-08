@@ -27,8 +27,8 @@ jobs:
         run: flutter create . --project-name bransan --platforms=android
 
       # Nom de l'application affiché sur le téléphone
-      - name: Set app name to Bransan
-        run: sed -i 's/android:label="[^"]*"/android:label="Bransan"/' android/app/src/main/AndroidManifest.xml
+      - name: Set app name to bransan
+        run: sed -i 's/android:label="[^"]*"/android:label="bransan"/' android/app/src/main/AndroidManifest.xml
 
       # Forcer compileSdk 36 sur TOUS les modules (app + plugins)
       - name: Force compileSdk 36 on all modules
@@ -73,5 +73,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bransan-APK
+          name: bransan-APK
           path: build/app/outputs/flutter-apk/app-release.apk
